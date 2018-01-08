@@ -21,7 +21,6 @@ def folder_move_all(folder_path,newpath):
 	if os.path.exists(folder_path):
 		dirs=os.listdir(folder_path)
 		for i in range(0,len(dirs)):
-			print(dirs[i])
 			oldfilepath = os.path.join(folder_path,dirs[i])
 			newfilepath=os.path.join(newpath,dirs[i])
 			shutil.move(oldfilepath,newfilepath)
