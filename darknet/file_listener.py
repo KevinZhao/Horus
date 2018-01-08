@@ -14,7 +14,6 @@ class MyEventHandler(pyinotify.ProcessEvent):
 
 
 def startListener():
-    print('开启文件夹监听')
     # watch manager
     wm = pyinotify.WatchManager()
     sys.path.append("..")
