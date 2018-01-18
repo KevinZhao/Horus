@@ -12,10 +12,14 @@ from sqlalchemy import text
 from sqlalchemy import create_engine
 import select
 import os
+sys.path.append("..")
+from envsensor import envsensor_observer as env
+
 
 class Communicate():
     
     pid=1
+    envpid=1
     #发送文件数据
     def sendFile(self,socket,filepath):
         if os.path.isfile(filepath):
@@ -39,11 +43,14 @@ class Communicate():
         pid = os.fork()
         if pid > 0:
             return pid
-        # 开启摄像头
+        # open  camera
         camera.Camera().opencamera()
 
-    
-
+    def createnvDaemon(self):
+        envpid = os.fork()
+        if envpid > 0:
+            return envpid
+        env.evsensor()
     
     #处理收到的数据或命令
     def deal_command(self,socket,data):
@@ -54,6 +61,7 @@ class Communicate():
             #摄像头操作
             global pid
             pid = Communicate().createCamereDaemon()
+            print "camera:"+str(pid)
 
         elif '0x02' in data:
             #自定义命令
@@ -62,6 +70,7 @@ class Communicate():
                 os.system(cus_command)
 
         elif '0x03' in data:
+            print "camera:" + str(pid)
             util.kill(pid)
             util.folder_move_all(config.FILE_PATH,config.PIC_PATH)
 
@@ -73,6 +82,15 @@ class Communicate():
             value=data.split(':')[2]
             if key != '' and value != '':
                 util.alter("/home/nvidia/Horus/config.py", key, value)
+
+        elif '0x06' in data:
+            global envid
+            envid = Communicate().createnvDaemon()
+            print "env:" + str(envid)
+
+        elif '0x07' in data:
+            print "env:" + str(envid)
+            util.kill(envid)
 
         elif 'test' in data:
             pass
