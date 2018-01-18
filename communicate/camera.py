@@ -10,7 +10,6 @@ class Camera():
         #打开摄像头
         cap=cv2.VideoCapture("nvcamerasrc ! video/x-raw(memory:NVMM), width=(int)1280, height=(int)720,format=(string)I420, framerate=(fraction)30/1 ! nvvidconv flip-method=0 ! video/x-raw, format=(string)BGRx ! videoconvert ! video/x-raw, format=(string)BGR ! appsink")
         #关闭摄像头 cap.release()
-        global timeF
         number=1
         sys.path.append("..")
         import config
