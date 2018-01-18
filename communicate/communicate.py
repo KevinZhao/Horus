@@ -61,7 +61,6 @@ class Communicate():
             #摄像头操作
             global pid
             pid = Communicate().createCamereDaemon()
-            print "camera:"+str(pid)
 
         elif '0x02' in data:
             #自定义命令
@@ -70,7 +69,6 @@ class Communicate():
                 os.system(cus_command)
 
         elif '0x03' in data:
-            print "camera:" + str(pid)
             util.kill(pid)
             util.folder_move_all(config.FILE_PATH,config.PIC_PATH)
 
@@ -86,10 +84,8 @@ class Communicate():
         elif '0x06' in data:
             global envid
             envid = Communicate().createnvDaemon()
-            print "env:" + str(envid)
 
         elif '0x07' in data:
-            print "env:" + str(envid)
             util.kill(envid)
 
         elif 'test' in data:
