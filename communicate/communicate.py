@@ -12,10 +12,14 @@ from sqlalchemy import text
 from sqlalchemy import create_engine
 import select
 import os
+sys.path.append("..")
+from envsensor import envsensor_observer as env
+
 
 class Communicate():
     
     pid=1
+    envpid=1
     #发送文件数据
     def sendFile(self,socket,filepath):
         if os.path.isfile(filepath):
@@ -39,11 +43,14 @@ class Communicate():
         pid = os.fork()
         if pid > 0:
             return pid
-        # 开启摄像头
+        # open  camera
         camera.Camera().opencamera()
 
-    
-
+    def createnvDaemon(self):
+        envpid = os.fork()
+        if envpid > 0:
+            return envpid
+        env.evsensor()
     
     #处理收到的数据或命令
     def deal_command(self,socket,data):
@@ -73,6 +80,13 @@ class Communicate():
             value=data.split(':')[2]
             if key != '' and value != '':
                 util.alter("/home/nvidia/Horus/config.py", key, value)
+
+        elif '0x06' in data:
+            global envid
+            envid = Communicate().createnvDaemon()
+
+        elif '0x07' in data:
+            util.kill(envid)
 
         elif 'test' in data:
             pass
