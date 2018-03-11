@@ -4,18 +4,26 @@ import socket
 import os
 import time
 import datetime
-import camera
 import sys
 import struct
 import json
+import subprocess
 from sqlalchemy import text
 from sqlalchemy import create_engine
 import select
 import os
+sys.path.append("..")
+from envsensor import envsensor_observer as env
+import multiprocessing 
+import psutil
+import threading
+
+envid=1
+
+
 
 class Communicate():
-    
-    pid=1
+
     #发送文件数据
     def sendFile(self,socket,filepath):
         if os.path.isfile(filepath):
@@ -33,53 +41,129 @@ class Communicate():
         else:
             sys.path.append("..")
             import util
-            util.log('no such log file')
+            util.Logprint(4,'no such log file')
 
-    def createCamereDaemon(self):
-        pid = os.fork()
-        if pid > 0:
-            return pid
-        # 开启摄像头
-        camera.Camera().opencamera()
+    def dbquery(self,socket):
+        with open("/home/nvidia/Horus/config.cnf", 'r') as f:
+            cnf = json.load(f)
+            db = create_engine(cnf['db'])
+            sql_query = 'select * from tb_object_statistics'
+            count = db.execute(sql_query).fetchall()
+            socket.sendall(str(len(count))+"eof")
 
-    
 
+
+    def createnvDaemon(self):
+        envid = os.fork()
+        if envid > 0:
+            return envid
+        env.evsensor()
     
     #处理收到的数据或命令
     def deal_command(self,socket,data):
         sys.path.append("..")
-        import config
         import util
         if '0x01' in data:
-            #摄像头操作
-            global pid
-            pid = Communicate().createCamereDaemon()
-
+            util.Logprint(2,data)
+            #打开摄像头
+            with open('/home/nvidia/Horus/config.cnf') as f:
+                cnf = json.load(f)
+                fq=1000/int(cnf['time_frequency'])
+                wb=int(cnf['whitebalance'])
+                ae=int(cnf['autoexposure'])
+                size=int(cnf['imagesize'])
+            cmd='/home/nvidia/Horus/nvgstcapture-1.0 --setWB='+str(wb)+' --setFQ='+str(fq)+' --setAE='+str(ae)+' --image-res='+str(size)
+            subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            util.Logprint(2,"open the camera:"+cmd)
+    
+            
         elif '0x02' in data:
             #自定义命令
+            util.Logprint(2,data)
             cus_command=data.split(':')[1]
             if cus_command != '':
                 os.system(cus_command)
 
         elif '0x03' in data:
-            util.kill(pid)
-            util.folder_move_all(config.FILE_PATH,config.PIC_PATH)
+            util.Logprint(2,data)
+            #关闭摄像头
+            pids = psutil.pids()
+            for pid in pids:
+                p = psutil.Process(pid)
+                if "nvgstcapture-1.0" in p.name():
+                    util.Logprint(1,data)
+                    util.kill(pid)
+#            with open('/home/nvidia/Horus/config.cnf') as f:
+#                cnf = json.load(f)
+#            util.folder_move_all(cnf['cap_path'],cnf['arc_path'])
+
 
         elif '0x04' in data:
-            Communicate().sendFile(socket,config.LOG_PATH)
+            #发送日志
+            # Communicate().sendFile(socket,config.LOG_PATH)
+            pass
 
         elif '0x05' in data:
+            import util#更新config的level值
+            util.Logprint(2,data)
+            #设置config
             key=data.split(':')[1]
             value=data.split(':')[2]
-            if key != '' and value != '':
-                util.alter("/home/nvidia/Horus/config.py", key, value)
+            #修改K-V
+            with open('/home/nvidia/Horus/config.cnf') as f:
+                cnf = json.load(f)
+                cnf[key]=value
+                jsonstr=json.dumps(cnf,ensure_ascii=False,sort_keys=True)
+                util.replace('/home/nvidia/Horus/config.cnf',jsonstr)
+        elif '0x06' in data:
+            util.Logprint(2,data)
+            #打开环境传感器
+            global envid
+            envid = Communicate().createnvDaemon()
 
+        elif '0x07' in data:
+            util.Logprint(2,data)
+            #关闭环境传感器
+            util.kill(envid)
+        elif '0x08' in data:
+            util.Logprint(2,data)
+            obddata=data[5:]
+            if util.is_json(obddata):
+                with open('/home/nvidia/Horus/config.cnf') as json_data:
+                    cnf = json.load(json_data)
+                    db = create_engine(cnf['db'])
+                    s = json.loads(obddata)
+                    insert_data = "insert into tb_obd(timestamp,longitude,latitude,altitude,speed) values (%s,%s,%s,%s,%s)" % (s["timestamp"],  s["longitude"], s["latitude"], s["altitude"],s["speed"])
+                    db.execute(insert_data)
+        elif '0x09' in data:
+            util.Logprint(2,data)
+            #关闭摄像头
+            pids = psutil.pids()
+            for pid in pids:
+                
+                p = psutil.Process(pid)
+                if "python" in p.name():
+                    ss=p.cmdline()
+                    if len(ss)>0:
+                        if ss[1]=="Horus.py":
+                            util.kill(pid)
+                    util.Logprint(1,data)
+            #杀死运行程序
+                if "Horus" in p.name():
+                    util.kill(pid)
+                            
+#
         elif 'test' in data:
+            util.Logprint(1,data)
+            #心跳测试和数据库表的条目查询
+            Communicate().dbquery(socket)
             pass
 
         else:
+            util.Logprint(1,data)
+            #手机端json数据
             if util.is_json(data):
-                with open('/home/nvidia/Horus/mysql/sql.cnf') as json_data:
+                with open('/home/nvidia/Horus/config.cnf') as json_data:
                     cnf = json.load(json_data)
                     db = create_engine(cnf['db'])
                     s=json.loads(data)
@@ -89,19 +173,23 @@ class Communicate():
 
     #连接Socket
     def connect_scoket(self):
-        sys.path.append("..")
-        import config
+        with open('/home/nvidia/Horus/config.cnf') as f:
+            cnf = json.load(f)
         #主机地址
-        HOST_IP=config.HOST_IP
+        HOST_IP=cnf['host_ip']
         #端口
-        HOST_PORT=config.HOST_PORT
+        HOST_PORT=cnf['host_port']
         #最大传输长度
-        MAX_LENGTH=config.MAX_LENGTH
+        MAX_LENGTH=cnf['max_length']
         #最大连接数
-        MAX_CONNECT=config.MAX_CONNECT
+        MAX_CONNECT=cnf['max_connect']
         #客户端超时
-        TIME_OUT=config.TIME_OUT
+        TIME_OUT=cnf['time_out']
         sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        #阻塞模式
+        # sock.setblocking(1)
+        #非阻塞模式
+        # sock.setblocking(0)
         epoll = select.epoll()
         #获取创建好的sock的文件描述符
         fd = sock.fileno()
@@ -117,7 +205,8 @@ class Communicate():
                 #获取到的文件描述符和sock的相同就说明是一个新的连接
                 if fileno == fd:
                     (client,address) = sock.accept()
-                    print address
+                    #util.Logprint(3,address)
+                    print(address)
                     client.setblocking(0)
                     #将新的连接进行注册，用来接收消息
                     epoll.register(client.fileno(),select.EPOLLIN)
@@ -128,7 +217,6 @@ class Communicate():
                         epoll.unregister(fileno)
                     else:
                         Communicate().deal_command(client,data)
-        
 
                     
 
