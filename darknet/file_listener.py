@@ -69,9 +69,6 @@ def startListener():
     notifier = pyinotify.Notifier(wm, eh)
     notifier.loop()
 
-if __name__ == '__main__':
-    startListener()
-
 
  
 
