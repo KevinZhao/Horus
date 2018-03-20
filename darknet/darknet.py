@@ -148,6 +148,9 @@ def dealData(name,probability,img_id,p_x,p_y,p_w,p_h):
             insert_obj="insert into tb_object(type_id,probability,img_id,p_x,p_y,p_w,p_h) values (%s,%s,%s,%s,%s,%s,%s)"%(type_id,probability,img_id,p_x,p_y,p_w,p_h)
             db.execute(insert_obj)
 
+            # draw_box_width(im,int(p_x-p_w/2.),int(p_y-p_h/2.),int(p_x+p_w/2.),int(p_y+p_h/2.),3,255,0,0)
+            # save_image(im,cnf['detect_path']+'/'+img_id)
+
 #处理统计数据
 def dealDtatistics(img_id,car,motorcycle,bus,truck,stop_sign,traffic_light,person,bicycle,clock):
     with open('/home/nvidia/Horus/config.cnf') as json_data:

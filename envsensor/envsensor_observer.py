@@ -15,6 +15,7 @@ import socket
 import datetime
 import threading
 import struct
+import json
 
 import sensor_beacon as envsensor
 import conf
@@ -34,6 +35,8 @@ debug=False
 sensor_list = []
 flag_update_sensor_status = False
 sock=None
+
+
 
 
 def parse_events(sock):
@@ -111,7 +114,9 @@ def eval_sensor_state():
                     print "timeout sensor : " + sensor.bt_address
                 sensor.flag_active = False
     flag_update_sensor_status = True
-    timer = threading.Timer(conf.CHECK_SENSOR_STATE_INTERVAL_SECONDS,
+    with open('/home/nvidia/Horus/config.cnf') as f:
+        cnf = json.load(f)
+    timer = threading.Timer(int(cnf['check_sensor_state_interval_seconds']),
                             eval_sensor_state)
     timer.setDaemon(True)
     timer.start()
@@ -119,8 +124,9 @@ def eval_sensor_state():
 
 def print_sensor_state():
     print "----------------------------------------------------"
-    print ("sensor status : %s (Intvl. %ssec)" % (datetime.datetime.today(),
-           conf.CHECK_SENSOR_STATE_INTERVAL_SECONDS))
+    with open('/home/nvidia/Horus/config.cnf') as f:
+        cnf = json.load(f)
+    print ("sensor status : %s (Intvl. %ssec)" % (datetime.datetime.today(),int(cnf['check_sensor_state_interval_seconds'])))
     for sensor in sensor_list:
         print " " + sensor.bt_address, ": %s :" % sensor.sensor_type, \
             ("ACTIVE" if sensor.flag_active else "DEAD"), \
@@ -236,7 +242,9 @@ def evsensor():
         sock.setsockopt(ble.bluez.SOL_HCI, ble.bluez.HCI_FILTER, flt)
 
         # activate timer for sensor status evaluation
-        timer = threading.Timer(conf.CHECK_SENSOR_STATE_INTERVAL_SECONDS,
+        with open('/home/nvidia/Horus/config.cnf') as f:
+            cnf = json.load(f)
+        timer = threading.Timer(int(cnf['check_sensor_state_interval_seconds']),
                                 eval_sensor_state)
 
         timer.setDaemon(True)

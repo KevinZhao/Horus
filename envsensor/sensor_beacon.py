@@ -188,7 +188,7 @@ class SensorBeacon:
         print "\tflag_active = ", self.flag_active
 
     def sqlInsert(self):
-
+        
         insert = "insert into tb_envsensor(time,gateway,address,type,rssi,distance,sequenceNo,battery,temperature,humidity,light,uvIndex,pressure,noise,discomfortIndex,heatStrokeRisk,accX,accY,accZ) values('%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s','%s')" % (str(self.tick_register), str(self.gateway), str(self.bt_address),str(self.sensor_type),self.rssi,self.distance,self.seq_num,self.val_battery,self.val_temp,self.val_humi,self.val_light,self.val_uv,self.val_pressure,self.val_noise,self.val_di,self.val_heat,self.val_ax,self.val_ay,self.val_az)
 
         return insert
